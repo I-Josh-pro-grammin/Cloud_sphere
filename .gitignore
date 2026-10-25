@@ -8,14 +8,12 @@ target/
 .classpath
 .project
 .settings
-.vscode/
 .apt_generated
 .factorypath
 .springBeans
 .sts4-cache
 
 # Secrets
-.env
 *.pem
 
 # OS
@@ -25,3 +23,5 @@ target/
 frontend/node_modules/
 frontend/dist/
 
+config.bat
+node_modules
