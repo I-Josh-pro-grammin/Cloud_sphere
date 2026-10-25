@@ -50,7 +50,7 @@ A unit test of `Calculator` needs only JUnit. Surefire runs classes named `*Test
 | Tag | Classes |
 |---|---|
 | `unit` | `PricingTest`, `OrderStateMachineTest`, `DiscountCodeTest`, `AuthPolicyTest`, `ProductFlagsTest`, `CartTotalsTest`, `WishlistItemIdTest`, `RestExceptionHandlerTest`, `DataInitializerTest`, `SecurityComponentTest` |
-| `integration` | `CloudsphereApplicationTests`, `AuthAndCatalogTests`, `StorefrontFlowTests`, `AdminControllerTests` |
+| `integration` | `CloudsphereApplicationTests`, `AuthAndCatalogTests`, `StorefrontFlowTests`, `AdminControllerTests`, `ProductRepositoryTest` |
 | `e2e` | `AdminJourneyTests` |
 
 ```bash
@@ -1080,7 +1080,7 @@ class CalculationRepositoryTest {
 }
 ```
 
-The main suite does not use this slice. The failures we care about show up when the service, the transaction, and Postgres run together. A new repository test uses the same Postgres container as `AuthAndCatalogTests`, so it executes the Flyway script the application executes.
+`ProductRepositoryTest` is this slice. It imports Flyway, points the datasource at a PostgreSQL 16 container, and rolls each method back. A mocked `ProductRepository` still cannot prove the `sku` unique constraint or the stock `WHERE` clause.
 
 ---
 
