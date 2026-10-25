@@ -2,6 +2,7 @@ package rw.ac.rca.cloudsphere;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)
+@Tag("integration")
 class AuthAndCatalogTests {
 
     @Container
@@ -56,7 +58,7 @@ class AuthAndCatalogTests {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    void healthDoesNotLeakVersions() throws Exception {
+    void health_anyCaller_hidesVersion() throws Exception {
         mvc.perform(get("/api/v1/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"))
@@ -64,7 +66,7 @@ class AuthAndCatalogTests {
     }
 
     @Test
-    void loginSuccessAndGenericFailure() throws Exception {
+    void login_validPassword_returnsToken() throws Exception {
         mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -73,7 +75,10 @@ class AuthAndCatalogTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.user.email").value("demo@cloudsphere.rw"));
+    }
 
+    @Test
+    void login_wrongPassword_returnsGenericDetail() throws Exception {
         mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -84,7 +89,7 @@ class AuthAndCatalogTests {
     }
 
     @Test
-    void publishedProductVisibleUnpublishedIs404() throws Exception {
+    void products_publishedSku_isVisible() throws Exception {
         MvcResult list = mvc.perform(get("/api/v1/products?q=USB"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].sku").value("USB-C-01"))
@@ -95,11 +100,14 @@ class AuthAndCatalogTests {
     }
 
     @Test
-    void guestCartGetsTokenAndCheckoutRequiresAuth() throws Exception {
+    void cart_guest_receivesToken() throws Exception {
         mvc.perform(get("/api/v1/cart"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Cart-Token", not("")));
+    }
 
+    @Test
+    void checkout_anonymous_returnsUnauthorized() throws Exception {
         mvc.perform(post("/api/v1/checkout")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

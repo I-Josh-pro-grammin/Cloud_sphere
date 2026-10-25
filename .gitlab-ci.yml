@@ -1,0 +1,104 @@
+# Cloud Sphere test pipeline.
+#
+# Default (TEST_LEVEL=all): unit tests, integration tests, then ./mvnw verify.
+# The verify job repeats the suite in one Maven process so JaCoCo can enforce 85% line coverage.
+#
+# Run one level from GitLab: CI/CD → Pipelines → Run pipeline → add a variable
+#   TEST_LEVEL = unit | integration | e2e
+#
+# The same filters work on a laptop. See docs/testing/README.md.
+
+stages:
+  - test
+  - gate
+
+variables:
+  TEST_LEVEL: "all"
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  MAVEN_CLI_OPTS: "-B --no-transfer-progress"
+
+.maven:
+  image: maven:3.9-eclipse-temurin-21
+  cache:
+    key: maven-$CI_COMMIT_REF_SLUG
+    paths:
+      - .m2/repository
+  before_script:
+    - chmod +x mvnw
+
+unit:
+  extends: .maven
+  stage: test
+  rules:
+    - if: $TEST_LEVEL == "all" || $TEST_LEVEL == "unit"
+  script:
+    - ./mvnw $MAVEN_CLI_OPTS -Dgroups=unit test
+  artifacts:
+    when: always
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
+    paths:
+      - target/surefire-reports/
+
+integration:
+  extends: .maven
+  stage: test
+  services:
+    - name: docker:27-dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+    # Ryuk cannot always reap containers across the GitLab service network.
+    TESTCONTAINERS_RYUK_DISABLED: "true"
+    # JDBC and Redis must dial the dind service, not localhost inside the Maven container.
+    TESTCONTAINERS_HOST_OVERRIDE: docker
+  rules:
+    - if: $TEST_LEVEL == "all" || $TEST_LEVEL == "integration"
+  script:
+    - ./mvnw $MAVEN_CLI_OPTS -Dgroups=integration test
+  artifacts:
+    when: always
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
+    paths:
+      - target/surefire-reports/
+
+e2e:
+  extends: .maven
+  stage: test
+  rules:
+    - if: $TEST_LEVEL == "e2e"
+    - if: $TEST_LEVEL == "all"
+      when: manual
+      allow_failure: true
+  script:
+    # No class is tagged e2e yet. failIfNoSpecifiedTests=false keeps the job from failing on an empty selection.
+    - ./mvnw $MAVEN_CLI_OPTS -Dgroups=e2e -Dsurefire.failIfNoSpecifiedTests=false test
+
+gate:
+  extends: .maven
+  stage: gate
+  needs:
+    - job: unit
+    - job: integration
+  services:
+    - name: docker:27-dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+    TESTCONTAINERS_RYUK_DISABLED: "true"
+    TESTCONTAINERS_HOST_OVERRIDE: docker
+  rules:
+    - if: $TEST_LEVEL == "all"
+  script:
+    - ./mvnw $MAVEN_CLI_OPTS verify
+  artifacts:
+    when: always
+    paths:
+      - target/site/jacoco/
+    reports:
+      junit: target/surefire-reports/TEST-*.xml

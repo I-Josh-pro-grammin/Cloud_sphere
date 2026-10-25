@@ -1,5 +1,6 @@
 package rw.ac.rca.cloudsphere;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -12,6 +13,7 @@ import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
+@Tag("integration")
 class CloudsphereApplicationTests {
 
     @Container
@@ -35,6 +37,6 @@ class CloudsphereApplicationTests {
     }
 
     @Test
-    void contextLoads() {
+    void context_withPostgresAndRedis_starts() {
     }
 }

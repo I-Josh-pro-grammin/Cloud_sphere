@@ -54,7 +54,7 @@ public class AuthService {
         return tokens(user);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)
     public TokenResponse login(LoginRequest request, String guestToken) {
         String email = request.email().trim().toLowerCase();
         log.info("login_attempt email={} inputLen={}", email, request.password() == null ? 0 : request.password().length());

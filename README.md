@@ -212,16 +212,30 @@ Default stub mode is `SUCCESS` (`PAYMENT_STUB_MODE` env / `cloudsphere.payment.s
 
 ### Step 5 — tests
 
-Unit tests (no Docker):
+How to write them, including which level to use and what a test cannot prove: [`docs/testing/README.md`](docs/testing/README.md). GitLab runs the same commands from [`.gitlab-ci.yml`](.gitlab-ci.yml).
+
+Unit tests only (no Docker):
 
 ```bash
-./mvnw -q -Dtest=PricingTest,OrderStateMachineTest test
+./mvnw -q -Dgroups=unit test
 ```
 
-Full suite (Docker required for Testcontainers):
+Integration tests only (Docker required):
 
 ```bash
-./mvnw test
+./mvnw -q -Dgroups=integration test
+```
+
+End-to-end tag. No browser suite is tagged `e2e` yet, so this exits without running a test:
+
+```bash
+./mvnw -q -Dgroups=e2e -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
+Full suite and the 85% line-coverage gate:
+
+```bash
+./mvnw verify
 ```
 
 ---
