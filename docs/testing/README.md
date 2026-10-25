@@ -50,13 +50,13 @@ A unit test of `Calculator` needs only JUnit. Surefire runs classes named `*Test
 | Tag | Classes |
 |---|---|
 | `unit` | `PricingTest`, `OrderStateMachineTest`, `DiscountCodeTest`, `AuthPolicyTest`, `ProductFlagsTest`, `CartTotalsTest`, `WishlistItemIdTest`, `RestExceptionHandlerTest`, `DataInitializerTest`, `SecurityComponentTest` |
-| `integration` | `CloudsphereApplicationTests`, `AuthAndCatalogTests`, `StorefrontFlowTests` |
-| `e2e` | none yet |
+| `integration` | `CloudsphereApplicationTests`, `AuthAndCatalogTests`, `StorefrontFlowTests`, `AdminControllerTests` |
+| `e2e` | `AdminJourneyTests` |
 
 ```bash
 ./mvnw -q -Dgroups=unit test
 ./mvnw -q -Dgroups=integration test
-./mvnw -q -Dgroups=e2e -Dsurefire.failIfNoSpecifiedTests=false test
+./mvnw -q -Dgroups=e2e test
 ./mvnw -q -Dtest=PricingTest test
 ./mvnw verify
 ```
@@ -1255,13 +1255,13 @@ Journey worth automating when you add Playwright:
 4. Check out. The order is paid.
 5. As a guest, open `/wishlist`. The app redirects to `/login` (`RequireAuth` in `frontend/src/App.jsx`).
 
-Put `@Tag("e2e")` on that suite, or give the npm script the name `test:e2e`, and the GitLab `e2e` job will run it. Today no class has the tag. The job is manual on a normal pipeline and does not block the coverage gate.
+`AdminJourneyTests` is tagged `e2e`. It signs in as `ops@cloudsphere.rw`, publishes a product, sets stock, and ships a paid order through to delivered. The client is `TestRestTemplate` on a random port, so the call enters `AdminController` and `AdminCatalogService` / `OrderService` write the rows. The React app does not start. The browser list above is still the suite to add when the screen itself is the question. The GitLab `e2e` job is manual on a normal pipeline and does not block the coverage gate.
 
 ```bash
-./mvnw -q -Dgroups=e2e -Dsurefire.failIfNoSpecifiedTests=false test
+./mvnw -q -Dgroups=e2e test
 ```
 
-`failIfNoSpecifiedTests=false` is there because a group with zero tests would otherwise fail the build. Remove that flag once an `e2e` class exists, so an empty suite cannot pass silently.
+`AdminJourneyTests` is that class, so the command no longer passes `failIfNoSpecifiedTests=false`. An empty `e2e` group would fail the build instead of passing silently.
 
 Until then, the `curl` smoke in the project README (health, login, catalogue, guest cart) is the manual check. Assert text and the URL. Leave CSS class names alone.
 
@@ -1299,12 +1299,12 @@ A green `verify` cannot prove the shop. It proves the tagged tests passed and at
 |---|---|---|
 | `unit` | `TEST_LEVEL` is `all` (the default) or `unit` | `./mvnw -Dgroups=unit test` |
 | `integration` | `all` or `integration` | `./mvnw -Dgroups=integration test` |
-| `e2e` | `e2e`, or a manual button on `all` | `./mvnw -Dgroups=e2e -Dsurefire.failIfNoSpecifiedTests=false test` |
+| `e2e` | `e2e`, or a manual button on `all` | `./mvnw -Dgroups=e2e test` |
 | `gate` | `all`, after unit and integration | `./mvnw verify` |
 
-Run one level from the GitLab UI: **Build → Pipelines → Run pipeline**, add a variable `TEST_LEVEL` with value `unit`, `integration`, or `e2e`. Leave it unset and the default `all` runs unit, integration, and the gate. The manual `e2e` button does not block the gate. `allow_failure: true` keeps an empty end-to-end group from turning the pipeline red.
+Run one level from the GitLab UI: **Build → Pipelines → Run pipeline**, add a variable `TEST_LEVEL` with value `unit`, `integration`, or `e2e`. Leave it unset and the default `all` runs unit, integration, and the gate. The manual `e2e` button does not block the gate.
 
-The integration job and the gate job start a Docker daemon beside the Maven job (`docker:27-dind`). Testcontainers talks to it through `DOCKER_HOST=tcp://docker:2375`. Two variables are required there and wrong on a laptop:
+The integration job, the e2e job, and the gate job start a Docker daemon beside the Maven job (`docker:27-dind`). Testcontainers talks to it through `DOCKER_HOST=tcp://docker:2375`. Two variables are required there and wrong on a laptop:
 
 - `TESTCONTAINERS_HOST_OVERRIDE=docker` makes the JDBC URL and the Redis host point at the dind service. Inside the Maven container, `localhost` is not the daemon, so a random port on localhost is a refused connection.
 - `TESTCONTAINERS_RYUK_DISABLED=true` skips the reaper. Ryuk’s mount of the Docker socket does not work across that service boundary. The job’s containers die with the job.
@@ -1349,7 +1349,7 @@ Use the report to find a rule with no test. Do not add a test whose only purpose
 2. The three comments are in order: Arrange, Act, Assert.
 3. A boundary has the success, the line, and the refusal as separate tests.
 4. The assert is a value, a message, a status, or a `verify`.
-5. The tag matches section 2. A test that starts Docker is `integration`.
+5. The tag matches section 2. A test that starts Docker is `integration` or `e2e`, never `unit`.
 6. The test does not need another test method to have run first.
 7. `./mvnw -q -Dgroups=unit test` is green before you spend time on containers. After backend changes, `./mvnw verify` is green.
 
@@ -1363,7 +1363,7 @@ Use the report to find a rule with no test. Do not add a test whose only purpose
 | 4 | In the [todo article](https://dev.to/olymahmud/unit-testing-using-spring-boot-junit-and-mockito-2l0b), label Arrange, Act, and Assert on `createTodo_shouldSaveAndReturnTodo`. | You can point at `when`, the service call, the assert, and `verify`. |
 | 5 | Map each `PricingTest` method to a row in section 3.6. | You can name qty 4 and qty 5. |
 | 6 | Run `./mvnw -q -Dgroups=unit test` with Docker stopped. | The build is green and no container starts. |
-| 7 | Run `./mvnw -q -Dgroups=integration test` with Docker running. | Postgres and Redis start, and health, login, and the storefront class run. |
+| 7 | Run `./mvnw -q -Dgroups=integration test` with Docker running. | Postgres and Redis start, and health, login, the storefront class, and `AdminControllerTests` run. |
 | 8 | On a branch, remove `noRollbackFor` from `AuthService.login`, run `StorefrontFlowTests#login_threeBadPasswords_locksTheAccount`, and put the annotation back. | The third failure is visible in the database after the 401 only with the annotation. |
 
 ## 15. Questions

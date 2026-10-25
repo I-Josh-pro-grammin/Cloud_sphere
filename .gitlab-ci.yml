@@ -68,14 +68,22 @@ integration:
 e2e:
   extends: .maven
   stage: test
+  services:
+    - name: docker:27-dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+    TESTCONTAINERS_RYUK_DISABLED: "true"
+    TESTCONTAINERS_HOST_OVERRIDE: docker
   rules:
     - if: $TEST_LEVEL == "e2e"
     - if: $TEST_LEVEL == "all"
       when: manual
       allow_failure: true
   script:
-    # No class is tagged e2e yet. failIfNoSpecifiedTests=false keeps the job from failing on an empty selection.
-    - ./mvnw $MAVEN_CLI_OPTS -Dgroups=e2e -Dsurefire.failIfNoSpecifiedTests=false test
+    - ./mvnw $MAVEN_CLI_OPTS -Dgroups=e2e test
 
 gate:
   extends: .maven
